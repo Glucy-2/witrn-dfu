@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Linux firmware updater for WITRN USB meters (bootloader/DFU mode over hidraw)"
 readme = "README.md"
 requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = []
 
 [project.scripts]
