@@ -145,4 +145,4 @@ K2 的 bootloader 只在两个条件都满足时才跳转到 APP：APP 起始处
 
 ## 许可
 
-[MIT](LICENSE)
+[MIT](https://github.com/Glucy-2/witrn-dfu/blob/main/LICENSE)
