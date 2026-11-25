@@ -1,4 +1,7 @@
 __pycache__/
+build/
+dist/
+*.egg-info/
 # vendor firmware images and archives are not redistributed here
 *.k2
 *.a2

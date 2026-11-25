@@ -28,6 +28,7 @@ WITRN（维简）USB 电压电流表的 Linux 固件升级工具。
 ## 安装
 
 ```sh
+uv tool install ~/Documents/witrn-dfu    # 或仓库的 git 地址；也可以不安装，直接运行 ./witrn_dfu.py
 sudo cp 70-witrn.rules /etc/udev/rules.d/
 sudo udevadm control --reload && sudo udevadm trigger
 ```
@@ -37,10 +38,10 @@ sudo udevadm control --reload && sudo udevadm trigger
 ## 使用
 
 ```sh
-./witrn_dfu.py models                 # 列出支持的型号
-./witrn_dfu.py check K2_APP_6.0.k2    # 离线校验固件，显示目标型号和版本
-./witrn_dfu.py info                   # 只读：确认处于 DFU 模式，读取序列号、bootloader 和当前版本
-./witrn_dfu.py flash K2_APP_6.0.k2    # 擦除、写入、校验、重启
+witrn-dfu models                 # 列出支持的型号
+witrn-dfu check K2_APP_6.0.k2    # 离线校验固件，显示目标型号和版本
+witrn-dfu info                   # 只读：确认处于 DFU 模式，读取序列号、bootloader 和当前版本
+witrn-dfu flash K2_APP_6.0.k2    # 擦除、写入、校验、重启
 ```
 
 - `-d /dev/hidrawN`：同时连接了多个 WITRN 设备时，指定用哪一个。
