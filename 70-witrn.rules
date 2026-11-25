@@ -1,0 +1,2 @@
+# WITRN USB meters: let the logged-in user open their hidraw nodes (normal and DFU mode)
+KERNEL=="hidraw*", ATTRS{idVendor}=="0716", TAG+="uaccess"

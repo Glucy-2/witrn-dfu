@@ -1,0 +1,16 @@
+__pycache__/
+# vendor firmware images and archives are not redistributed here
+*.k2
+*.a2
+*.a2l
+*.a2c
+*.u3
+*.u3l
+*.c4ser
+*.c0ser
+*.cl01
+*.cc1
+*.df
+*.lr
+*.zip
+*.rar
