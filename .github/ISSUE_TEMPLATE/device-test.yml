@@ -19,8 +19,15 @@ body:
         - CC1
         - K2
         - W96D
+        - 其他（表里没有的型号）
     validations:
       required: true
+  - type: input
+    id: other_model
+    attributes:
+      label: 其他型号
+      description: 选了「其他」时填写：型号名称，以及进入 DFU 模式后 `lsusb` 显示的 USB ID
+      placeholder: "XX9，0716:51xx"
   - type: input
     id: firmware
     attributes:
