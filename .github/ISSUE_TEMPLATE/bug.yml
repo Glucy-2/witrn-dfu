@@ -1,0 +1,29 @@
+name: 问题报告
+description: 工具报错、行为和预期不符、文档有误
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 问题描述
+      description: 做了什么，期望发生什么，实际发生了什么
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: 命令和输出
+      description: 运行的命令及完整输出，涉及设备通信时请加 `-v`；序列号可以打码
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: 型号和固件
+      placeholder: "K2，K2_APP_6.0.k2"
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境
+      description: 发行版、内核版本、Python 版本、witrn-dfu 版本或 commit

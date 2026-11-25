@@ -1,0 +1,66 @@
+name: 型号测试报告
+description: 在实机上用 witrn-dfu 刷写（或读取信息）后反馈结果，成功和失败都欢迎
+title: "[测试] 型号 - 固件版本 - 成功/失败"
+labels: ["device-test"]
+body:
+  - type: dropdown
+    id: model
+    attributes:
+      label: 型号
+      options:
+        - A2
+        - A2L
+        - A2C
+        - U3
+        - U3L / U3L Pro
+        - C4 / C4L / C5
+        - C0 系列
+        - CL01
+        - CC1
+        - K2
+        - W96D
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: 固件文件
+      description: 文件名和下载来源，以及 `witrn-dfu check` 的输出
+      placeholder: "U3 10.3.u3（witrn.com）：U3 firmware v10.3, built 2026-09-01, 411220 bytes, checksums OK"
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: 结果
+      options:
+        - 刷写成功，新固件正常启动
+        - 刷写成功，但新固件没有正常启动
+        - 刷写过程中报错
+        - 只测试了 info（没有刷写）
+    validations:
+      required: true
+  - type: textarea
+    id: info
+    attributes:
+      label: witrn-dfu info 的输出
+      description: 序列号可以打码
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: 刷写输出
+      description: 失败时请附上 `witrn-dfu -v flash ...` 的完整输出
+      render: text
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境
+      description: 发行版、内核版本、Python 版本、连接方式（主板直连 / Hub / 线材）
+      placeholder: "Arch Linux, 6.x, Python 3.13, 主板后置 USB 口，USB-A 转 C 线"
+  - type: textarea
+    id: notes
+    attributes:
+      label: 其他说明
