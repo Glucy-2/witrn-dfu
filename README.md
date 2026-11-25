@@ -49,20 +49,20 @@ Windows 和 macOS 上的测试结果同样欢迎通过 issue 反馈
 ## 安装
 
 ```sh
-uv tool install git+https://github.com/Glucy-2/witrn-dfu    # 也可以不安装，直接运行 ./witrn_dfu.py
+uv tool install git+https://github.com/Glucy-2/witrn-dfu    # 也可以不安装，直接运行 ./witrn_dfu.py（Windows 或 macOS 需要另外安装 hidapi）
 ```
 
 - Windows、macOS：会自动安装 hidapi（各平台都有预编译 wheel，不需要编译），设备免驱，不需要额外配置
 - Linux：默认不依赖 hidapi，需要安装 udev 规则，让当前登录用户不用 root 就能访问厂商 ID 0716 的设备：
 
-  ```sh
-  sudo install -Dm644 70-witrn.rules /etc/udev/rules.d/70-witrn.rules
-  sudo udevadm control --reload && sudo udevadm trigger
-  ```
+```sh
+sudo install -Dm644 70-witrn.rules /etc/udev/rules.d/70-witrn.rules
+sudo udevadm control --reload && sudo udevadm trigger
+```
 
-  规则同时覆盖 hidraw 节点（`hidraw`、`hidapi` 后端）和 USB 设备节点（`hidapi-libusb` 后端）
+规则同时覆盖 hidraw 节点（`hidraw`、`hidapi` 后端）和 USB 设备节点（`hidapi-libusb` 后端）
 
-  想在 Linux 上也用 hidapi 后端，安装时加上 extra：`uv tool install 'witrn-dfu[hidapi] @ git+https://github.com/Glucy-2/witrn-dfu'`
+如果想在 Linux 上也用 hidapi 后端，安装时加上 extra：`uv tool install 'witrn-dfu[hidapi] @ git+https://github.com/Glucy-2/witrn-dfu'`
 
 ## 使用
 
