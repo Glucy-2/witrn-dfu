@@ -29,7 +29,7 @@ WITRN（维简）USB 电压电流表的 Linux 固件升级工具
 - ❌ 未测试：没有找到公开固件，也没有实机测试
 - C0s 等老设备用的 `.u2cc0` 固件属于更早的升级软件，暂不支持
 
-欢迎测试：如果你手上有 🟡 或 ❌ 的型号，刷写成功或失败都请提 [issue](../../issues/new/choose) 反馈（附上 `witrn-dfu -v` 的输出更好），修改代码或更新状态表欢迎直接发 PR
+欢迎测试：如果你手上有 🟡 或 ❌ 的型号，刷写成功或失败都请提 [issue](https://github.com/Glucy-2/witrn-dfu/issues/new/choose) 反馈（附上 `witrn-dfu -v` 的输出更好），修改代码或更新状态表欢迎直接发 PR
 
 ## 安装
 
