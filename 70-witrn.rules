@@ -1,2 +1,5 @@
-# WITRN USB meters: let the logged-in user open their hidraw nodes (normal and DFU mode)
+# WITRN USB meters: let the logged-in user access them (normal and DFU mode)
+# hidraw nodes: default Linux backend and `-b hidapi`
 KERNEL=="hidraw*", ATTRS{idVendor}=="0716", TAG+="uaccess"
+# USB device node: `-b hidapi-libusb` (libusb)
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTRS{idVendor}=="0716", TAG+="uaccess"

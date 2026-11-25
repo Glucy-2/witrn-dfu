@@ -33,12 +33,13 @@ WITRN（维简）USB 电压电流表的固件升级工具，支持 Linux、Windo
 
 ## 支持的平台
 
-| 平台 | 默认后端 | 状态 |
-|---|---|---|
-| Linux | `hidraw`（标准库） | ✅ |
-| Linux | `hidapi`（`-b hidapi`） | 🟡 |
-| Windows | `hidapi` | 🟡 |
-| macOS | `hidapi` | 🟡 |
+| 平台 | 后端 | 底层 | 状态 |
+|---|---|---|---|
+| Linux | `hidraw`（默认） | `/dev/hidraw*`，标准库 | ✅ |
+| Linux | `hidapi`（`-b hidapi`） | hidapi 的 hidraw 模块，`/dev/hidraw*` | 🟡 |
+| Linux | `hidapi-libusb`（`-b hidapi-libusb`） | hidapi 的 libusb 模块，直接访问 USB 设备，使用期间会临时解绑内核 HID 驱动 | 🟡 |
+| Windows | `hidapi`（默认） | 系统 HID 驱动 | 🟡 |
+| macOS | `hidapi`（默认） | IOKit | 🟡 |
 
 - ✅ 实机刷写验证
 - 🟡 协议代码和 Linux 相同，只是传输层换成了 hidapi，还没有在这个平台上实机刷写过
@@ -52,12 +53,14 @@ uv tool install git+https://github.com/Glucy-2/witrn-dfu    # 也可以不安装
 ```
 
 - Windows、macOS：会自动安装 hidapi（各平台都有预编译 wheel，不需要编译），设备免驱，不需要额外配置
-- Linux：默认不依赖 hidapi，需要安装 udev 规则，让当前登录用户不用 root 就能访问厂商 ID 0716 的 hidraw 设备：
+- Linux：默认不依赖 hidapi，需要安装 udev 规则，让当前登录用户不用 root 就能访问厂商 ID 0716 的设备：
 
   ```sh
   sudo install -Dm644 70-witrn.rules /etc/udev/rules.d/70-witrn.rules
   sudo udevadm control --reload && sudo udevadm trigger
   ```
+
+  规则同时覆盖 hidraw 节点（`hidraw`、`hidapi` 后端）和 USB 设备节点（`hidapi-libusb` 后端）
 
   想在 Linux 上也用 hidapi 后端，安装时加上 extra：`uv tool install 'witrn-dfu[hidapi] @ git+https://github.com/Glucy-2/witrn-dfu'`
 
@@ -72,7 +75,7 @@ witrn-dfu flash K2_APP_6.0.k2    # 擦除、写入、校验、重启
 ```
 
 - `-d 路径`：同时连接了多个 WITRN 设备时，指定用哪一个，路径见 `witrn-dfu devices` 的输出（Linux 上是 `/dev/hidrawN`，Windows 上是 `\\?\HID#VID_0716&PID_...` 这样的设备路径）
-- `-b hidraw|hidapi`：指定访问 HID 的方式，Linux 默认 `hidraw`，其他平台默认 `hidapi`
+- `-b 后端`：指定访问 HID 的方式，Linux 上可选 `hidraw`（默认）、`hidapi`、`hidapi-libusb`，其他平台只有 `hidapi`
 - `-v`：打印收发的原始 HID 包
 
 刷写前要让设备进入 DFU 模式，方法见各型号说明书（K2 是按住「-」键上电）

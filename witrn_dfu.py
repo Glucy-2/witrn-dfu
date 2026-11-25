@@ -192,19 +192,20 @@ class HidrawTransport:
         os.close(self.fd)
 
 
-class HidapiTransport:
-    """PyPI package `hidapi`: Windows, macOS, and Linux (through its hidraw module)."""
+LINUX = sys.platform.startswith("linux")
 
-    @staticmethod
-    def _hid():
+
+class HidapiTransport:
+    """PyPI package `hidapi`: native HID API on Windows/macOS, its hidraw module on Linux."""
+
+    module = "hidraw" if LINUX else "hid"
+
+    @classmethod
+    def _hid(cls):
         try:
-            if sys.platform.startswith("linux"):
-                import hidraw as hid  # same API; the package's default `hid` module uses libusb on Linux
-            else:
-                import hid
+            return __import__(cls.module)
         except ImportError:
-            raise DfuError("the hidapi backend needs the `hidapi` package (pip install hidapi)") from None
-        return hid
+            raise DfuError("this backend needs the `hidapi` package (pip install hidapi)") from None
 
     @classmethod
     def enumerate(cls) -> list[tuple[str, int]]:
@@ -215,7 +216,8 @@ class HidapiTransport:
         try:
             self.dev.open_path(path.encode())
         except OSError as e:
-            raise DfuError(f"cannot open {path}: {e}") from None
+            hint = "; check permissions, install 70-witrn.rules (see README)" if LINUX else ""
+            raise DfuError(f"cannot open {path}: {e}{hint}") from None
 
     def write(self, report: bytes):
         if self.dev.write(report) < 0:
@@ -229,8 +231,17 @@ class HidapiTransport:
         self.dev.close()
 
 
+class HidapiLibusbTransport(HidapiTransport):
+    """Linux only: the hidapi package's default `hid` module, which talks to the USB device
+    through libusb (detaching usbhid while open) instead of /dev/hidraw."""
+
+    module = "hid"
+
+
 BACKENDS = {"hidraw": HidrawTransport, "hidapi": HidapiTransport}
-DEFAULT_BACKEND = "hidraw" if sys.platform.startswith("linux") else "hidapi"
+if LINUX:
+    BACKENDS["hidapi-libusb"] = HidapiLibusbTransport
+DEFAULT_BACKEND = "hidraw" if LINUX else "hidapi"
 
 
 def find_devices(backend) -> list[tuple[str, Model]]:
