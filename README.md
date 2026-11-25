@@ -34,7 +34,7 @@ WITRN（维简）USB 电压电流表的 Linux 固件升级工具
 ## 安装
 
 ```sh
-uv tool install ~/Documents/witrn-dfu    # 或仓库的 git 地址；也可以不安装，直接运行 ./witrn_dfu.py
+uv tool install git+https://github.com/Glucy-2/witrn-dfu    # 也可以不安装，直接运行 ./witrn_dfu.py
 sudo install -Dm644 70-witrn.rules /etc/udev/rules.d/70-witrn.rules
 sudo udevadm control --reload && sudo udevadm trigger
 ```
