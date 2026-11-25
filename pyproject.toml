@@ -1,12 +1,16 @@
 [project]
 name = "witrn-dfu"
-version = "0.1.0"
-description = "Linux firmware updater for WITRN USB meters (bootloader/DFU mode over hidraw)"
+version = "0.2.0"
+description = "Firmware updater for WITRN USB meters in bootloader (DFU) mode, for Linux, Windows and macOS"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
-dependencies = []
+# Linux uses /dev/hidraw with the standard library; other platforms need hidapi
+dependencies = ['hidapi>=0.14; sys_platform != "linux"']
+
+[project.optional-dependencies]
+hidapi = ["hidapi>=0.14"]
 
 [project.scripts]
 witrn-dfu = "witrn_dfu:main"

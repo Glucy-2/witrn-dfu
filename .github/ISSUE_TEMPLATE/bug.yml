@@ -26,4 +26,4 @@ body:
     id: environment
     attributes:
       label: 环境
-      description: 发行版、内核版本、Python 版本、witrn-dfu 版本或 commit
+      description: 操作系统和版本（Linux 请写发行版和内核）、后端（hidraw / hidapi）、Python 版本、witrn-dfu 版本或 commit

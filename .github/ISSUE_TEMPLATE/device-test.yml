@@ -65,8 +65,8 @@ body:
     id: environment
     attributes:
       label: 环境
-      description: 发行版、内核版本、Python 版本、连接方式（主板直连 / Hub / 线材）
-      placeholder: "Arch Linux, 6.x, Python 3.13, 主板后置 USB 口，USB-A 转 C 线"
+      description: 操作系统和版本（Linux 请写发行版和内核）、后端（hidraw / hidapi）、Python 版本、连接方式（主板直连 / Hub / 线材）
+      placeholder: "Windows 11 24H2，hidapi，Python 3.13，主板后置 USB 口，USB-A 转 C 线"
   - type: textarea
     id: notes
     attributes:

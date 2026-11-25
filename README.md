@@ -1,10 +1,10 @@
 # witrn-dfu
 
-WITRN（维简）USB 电压电流表的 Linux 固件升级工具
+WITRN（维简）USB 电压电流表的固件升级工具，支持 Linux、Windows 和 macOS
 
 需要 python >= 3.10
 
-官方升级软件 WITRNUP 只能在 Windows 上运行。本工具按它的升级协议用 Python 重新实现，只依赖标准库，通过 `/dev/hidraw*` 和设备通信
+官方升级软件 WITRNUP 只能在 Windows 上运行，而且依赖 .NET；本工具按它的升级协议用 Python 重新实现：Linux 上只依赖标准库，通过 `/dev/hidraw*` 和设备通信；Windows 和 macOS 上通过 [hidapi](https://pypi.org/project/hidapi/) 通信
 
 ## 支持的型号
 
@@ -31,26 +31,48 @@ WITRN（维简）USB 电压电流表的 Linux 固件升级工具
 
 欢迎测试：如果你手上有 🟡 或 ❌ 的型号，刷写成功或失败都请提 [issue](https://github.com/Glucy-2/witrn-dfu/issues/new/choose) 反馈（附上 `witrn-dfu -v` 的输出更好），修改代码或更新状态表欢迎直接发 PR
 
+## 支持的平台
+
+| 平台 | 默认后端 | 状态 |
+|---|---|---|
+| Linux | `hidraw`（标准库） | ✅ |
+| Linux | `hidapi`（`-b hidapi`） | 🟡 |
+| Windows | `hidapi` | 🟡 |
+| macOS | `hidapi` | 🟡 |
+
+- ✅ 实机刷写验证
+- 🟡 协议代码和 Linux 相同，只是传输层换成了 hidapi，还没有在这个平台上实机刷写过
+
+Windows 和 macOS 上的测试结果同样欢迎通过 issue 反馈
+
 ## 安装
 
 ```sh
 uv tool install git+https://github.com/Glucy-2/witrn-dfu    # 也可以不安装，直接运行 ./witrn_dfu.py
-sudo install -Dm644 70-witrn.rules /etc/udev/rules.d/70-witrn.rules
-sudo udevadm control --reload && sudo udevadm trigger
 ```
 
-规则给厂商 ID 0716 的 hidraw 设备加上 `uaccess` 标记，让当前登录用户不用 root 就能访问
+- Windows、macOS：会自动安装 hidapi（各平台都有预编译 wheel，不需要编译），设备免驱，不需要额外配置
+- Linux：默认不依赖 hidapi，需要安装 udev 规则，让当前登录用户不用 root 就能访问厂商 ID 0716 的 hidraw 设备：
+
+  ```sh
+  sudo install -Dm644 70-witrn.rules /etc/udev/rules.d/70-witrn.rules
+  sudo udevadm control --reload && sudo udevadm trigger
+  ```
+
+  想在 Linux 上也用 hidapi 后端，安装时加上 extra：`uv tool install 'witrn-dfu[hidapi] @ git+https://github.com/Glucy-2/witrn-dfu'`
 
 ## 使用
 
 ```sh
 witrn-dfu models                 # 列出支持的型号
 witrn-dfu check K2_APP_6.0.k2    # 离线校验固件，显示目标型号和版本
+witrn-dfu devices                # 列出已连接的 WITRN 设备及其路径
 witrn-dfu info                   # 只读：确认处于 DFU 模式，读取序列号、bootloader 和当前版本
 witrn-dfu flash K2_APP_6.0.k2    # 擦除、写入、校验、重启
 ```
 
-- `-d /dev/hidrawN`：同时连接了多个 WITRN 设备时，指定用哪一个
+- `-d 路径`：同时连接了多个 WITRN 设备时，指定用哪一个，路径见 `witrn-dfu devices` 的输出（Linux 上是 `/dev/hidrawN`，Windows 上是 `\\?\HID#VID_0716&PID_...` 这样的设备路径）
+- `-b hidraw|hidapi`：指定访问 HID 的方式，Linux 默认 `hidraw`，其他平台默认 `hidapi`
 - `-v`：打印收发的原始 HID 包
 
 刷写前要让设备进入 DFU 模式，方法见各型号说明书（K2 是按住「-」键上电）
@@ -65,7 +87,7 @@ witrn-dfu flash K2_APP_6.0.k2    # 擦除、写入、校验、重启
 
 ### 传输
 
-HID 中断端点，输入、输出报告都是 64 字节，没有报告 ID；在 hidraw 上写入时要在前面加一个 `0x00`
+HID 中断端点，输入、输出报告都是 64 字节，没有报告 ID；写入时要在前面加一个报告 ID `0x00`（hidraw 和 hidapi 都是这样）
 
 ```
 byte  0       1       2       3       4       5       6       7

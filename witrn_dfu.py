@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Linux firmware updater for WITRN USB meters in bootloader ("DFU") mode.
+"""Firmware updater for WITRN USB meters in bootloader ("DFU") mode.
 
 Reimplements the protocol of the official Windows tool WITRNUP (WITRN_UP_V30, .NET 8).
-Only the Python standard library is used; the device is accessed through /dev/hidraw*.
+On Linux the device is accessed through /dev/hidraw* with the standard library only; on
+Windows and macOS (or with --backend hidapi) the `hidapi` package is used.
 See README.md for the protocol description.
 """
 
@@ -158,25 +159,91 @@ class Firmware:
 
 # ---------------------------------------------------------------- transport
 
-def find_devices() -> list[tuple[Path, Model]]:
+class HidrawTransport:
+    """Linux /dev/hidraw*, standard library only."""
+
+    @staticmethod
+    def enumerate() -> list[tuple[str, int]]:
+        found = []
+        root = Path("/sys/class/hidraw")
+        for node in sorted(root.iterdir()) if root.exists() else ():
+            for line in (node / "device" / "uevent").read_text().splitlines():
+                if line.startswith("HID_ID="):
+                    _, vid, pid = line[len("HID_ID="):].split(":")
+                    if int(vid, 16) == VID:
+                        found.append((f"/dev/{node.name}", int(pid, 16)))
+        return found
+
+    def __init__(self, path: str):
+        try:
+            self.fd = os.open(path, os.O_RDWR)
+        except PermissionError:
+            raise DfuError(f"no permission to open {path}; install 70-witrn.rules (see README)") from None
+
+    def write(self, report: bytes):
+        os.write(self.fd, report)
+
+    def read(self, timeout: float) -> bytes | None:
+        if not select.select([self.fd], [], [], max(timeout, 0))[0]:
+            return None
+        return os.read(self.fd, 64)
+
+    def close(self):
+        os.close(self.fd)
+
+
+class HidapiTransport:
+    """PyPI package `hidapi`: Windows, macOS, and Linux (through its hidraw module)."""
+
+    @staticmethod
+    def _hid():
+        try:
+            if sys.platform.startswith("linux"):
+                import hidraw as hid  # same API; the package's default `hid` module uses libusb on Linux
+            else:
+                import hid
+        except ImportError:
+            raise DfuError("the hidapi backend needs the `hidapi` package (pip install hidapi)") from None
+        return hid
+
+    @classmethod
+    def enumerate(cls) -> list[tuple[str, int]]:
+        return [(d["path"].decode(), d["product_id"]) for d in cls._hid().enumerate(VID, 0)]
+
+    def __init__(self, path: str):
+        self.dev = self._hid().device()
+        try:
+            self.dev.open_path(path.encode())
+        except OSError as e:
+            raise DfuError(f"cannot open {path}: {e}") from None
+
+    def write(self, report: bytes):
+        if self.dev.write(report) < 0:
+            raise DfuError("HID write failed")
+
+    def read(self, timeout: float) -> bytes | None:
+        data = self.dev.read(64, max(1, int(timeout * 1000)))  # 0 would block forever
+        return bytes(data) if data else None
+
+    def close(self):
+        self.dev.close()
+
+
+BACKENDS = {"hidraw": HidrawTransport, "hidapi": HidapiTransport}
+DEFAULT_BACKEND = "hidraw" if sys.platform.startswith("linux") else "hidapi"
+
+
+def find_devices(backend) -> list[tuple[str, Model]]:
     by_pid = {m.pid: m for m in MODELS}
-    found = []
-    root = Path("/sys/class/hidraw")
-    for node in sorted(root.iterdir()) if root.exists() else ():
-        for line in (node / "device" / "uevent").read_text().splitlines():
-            if line.startswith("HID_ID="):
-                _, vid, pid = line[len("HID_ID="):].split(":")
-                if int(vid, 16) == VID and int(pid, 16) in by_pid:
-                    found.append((Path("/dev") / node.name, by_pid[int(pid, 16)]))
-    return found
+    return [(path, by_pid[pid]) for path, pid in backend.enumerate() if pid in by_pid]
 
 
-def select_device(path: str | None, model: Model | None) -> tuple[Path, Model]:
-    devices = find_devices()
+def select_device(backend, path: str | None, model: Model | None) -> tuple[str, Model]:
+    devices = find_devices(backend)
     if path:
-        match = [d for d in devices if d[0] == Path(path)]
+        match = [d for d in devices if d[0] == path]
         if not match:
-            raise DfuError(f"{path} is not a supported WITRN device")
+            raise DfuError(f"{path} is not a supported WITRN device (see `witrn-dfu devices`)")
         devices = match
     if model:
         others = [d for d in devices if d[1] != model]
@@ -222,18 +289,15 @@ def packet_valid(pkt: bytes) -> bool:
 
 
 class Device:
-    def __init__(self, path: Path, model: Model, verbose: bool = False):
+    def __init__(self, backend, path: str, model: Model, verbose: bool = False):
         self.path = path
         self.model = model
         self.verbose = verbose
-        try:
-            self.fd = os.open(path, os.O_RDWR)
-        except PermissionError:
-            raise DfuError(f"no permission to open {path}; install 70-witrn.rules (see README)") from None
+        self.io = backend(path)
         self.log_index = 0
 
     def close(self):
-        os.close(self.fd)
+        self.io.close()
 
     def __enter__(self):
         return self
@@ -242,22 +306,22 @@ class Device:
         self.close()
 
     def _drain(self):
-        while select.select([self.fd], [], [], 0)[0]:
-            os.read(self.fd, 64)
+        while self.io.read(0) is not None:
+            pass
 
     def _send(self, cmd: int, data: bytes = b"", want_reply: bool = True):
         pkt = build_packet(cmd, data, want_reply)
         if self.verbose:
             print(f">> {pkt.hex()}", file=sys.stderr)
-        os.write(self.fd, b"\x00" + pkt)  # report ID 0: the report descriptor has none
+        self.io.write(b"\x00" + pkt)  # report ID 0: the report descriptor has none
 
     def _recv(self, cmds, timeout: float = 1.0) -> bytes:
         deadline = time.monotonic() + timeout
         while True:
             left = deadline - time.monotonic()
-            if left <= 0 or not select.select([self.fd], [], [], left)[0]:
+            pkt = self.io.read(left) if left > 0 else None
+            if pkt is None:
                 raise DfuError(f"timeout waiting for reply {cmds}")
-            pkt = os.read(self.fd, 64)
             if self.verbose:
                 print(f"<< {pkt.hex()}", file=sys.stderr)
             if packet_valid(pkt) and pkt[8] in cmds:
@@ -354,7 +418,8 @@ def read_info(dev: Device) -> dict:
     elif m.name == "U3L" and info[224 - 202] == 1:
         result["model"] = "U3LP"
     boot = dev.read(BOOT_INFO, 256)
-    result["bootloader"] = " ".join(s.decode("utf-8", "replace") for s in boot.split(b"\0") if s)
+    # date, time and name, NUL-terminated; code follows (Class4.method_52 also stops after three)
+    result["bootloader"] = " ".join(s.decode("utf-8", "replace") for s in boot.split(b"\0")[:3])
     v = dev.read_small(m.app_base + VERSION_OFFSET, 1)[0]
     result["app_version"] = version_str(v) if v != 0xFF else "none"
     return result
@@ -375,9 +440,18 @@ def cmd_check(args):
     print(Firmware(Path(args.firmware)).describe() + ", checksums OK")
 
 
+def cmd_devices(args):
+    devices = find_devices(BACKENDS[args.backend])
+    if not devices:
+        print("no WITRN device found")
+    for path, m in devices:
+        print(f"{m.name:12} 0716:{m.pid:04x}  {path}")
+
+
 def cmd_info(args):
-    path, model = select_device(args.device, None)
-    with Device(path, model, args.verbose) as dev:
+    backend = BACKENDS[args.backend]
+    path, model = select_device(backend, args.device, None)
+    with Device(backend, path, model, args.verbose) as dev:
         dev.ping()
         print_info(read_info(dev))
 
@@ -386,8 +460,9 @@ def cmd_flash(args):
     fw = Firmware(Path(args.firmware))
     m = fw.model
     print("image: " + fw.describe())
-    path, _ = select_device(args.device, m)
-    with Device(path, m, args.verbose) as dev:
+    backend = BACKENDS[args.backend]
+    path, _ = select_device(backend, args.device, m)
+    with Device(backend, path, m, args.verbose) as dev:
         dev.ping()
         print_info(read_info(dev))
 
@@ -435,12 +510,15 @@ def cmd_flash(args):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("-v", "--verbose", action="store_true", help="dump raw HID packets")
-    ap.add_argument("-d", "--device", help="hidraw node to use when several devices are connected")
+    ap.add_argument("-d", "--device", help="device path (see `devices`) when several devices are connected")
+    ap.add_argument("-b", "--backend", choices=BACKENDS, default=DEFAULT_BACKEND,
+                    help=f"HID access method (default: {DEFAULT_BACKEND})")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("models", help="list supported models").set_defaults(func=cmd_models)
     p = sub.add_parser("check", help="validate a firmware file and show its target model (offline)")
     p.add_argument("firmware")
     p.set_defaults(func=cmd_check)
+    sub.add_parser("devices", help="list connected WITRN devices").set_defaults(func=cmd_devices)
     sub.add_parser("info", help="read device info (read-only)").set_defaults(func=cmd_info)
     p = sub.add_parser("flash", help="erase, write, verify and reboot")
     p.add_argument("firmware")
@@ -448,7 +526,7 @@ def main():
     args = ap.parse_args()
     try:
         args.func(args)
-    except DfuError as e:
+    except (DfuError, OSError) as e:  # OSError: device unplugged or USB error mid-transfer
         sys.exit(f"error: {e}")
 
 
